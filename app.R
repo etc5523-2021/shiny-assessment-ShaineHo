@@ -5,7 +5,7 @@ library(plotly)
 library(here)
 
 # once you've prepared the data uncomment this line
-tidy_fuels <- read_csv(here("data", "cooking.csv"))
+tidy_fuels <- read_csv(here("data/cooking.csv"))
 # you might want to use highlight_key here
 
 ui <- fluidPage(
@@ -34,7 +34,7 @@ ui <- fluidPage(
           2,
           offset = 1,
           checkboxInput("small_countries",
-            "Hide countries < 1 million",
+            "Hide countries < 1 million population",
             value = FALSE
           )
         )
@@ -57,25 +57,22 @@ server <- function(input, output, session) {
 
   tidy_fuels$tooltip <- glue::glue_data(tidy_fuels,
                                         "Country: {country}",
-                                        "\nPopulation: {scales::label_number_auto()(total_population)}",
+                                        "\nPopulation: {scales::number(total_population, big.mark = ",")}",
                                         "\nProportion: {scales::percent(cooking, scale = 1, accuracy = 1)}",
                                         "\nGDP per capita: {scales::dollar(gdp_per_capita)}")
 
 # Define reactive expressions here for filtering data
-date_input <- reactive({
-  tidy_fuels %>%
-    filter(year %in% input$year)
-  })
 
 countrysize <- reactive({
 if (input$small_countries) {
-  date_input() %>%
+  tidy_fuels %>%
    filter(total_population > 1000000)
-} else {
-  date_input()
 }
-})
+  else {
+  tidy_fuels
+}
 
+})
 countryname <- reactive({
   if (is.null(input$countries)){
   countrysize()
@@ -85,8 +82,14 @@ countryname <- reactive({
       filter(country %in% input$countries)
 }
 
+})
+
+date_input <- reactive({
+  countryname() %>%
+    filter(year %in% input$year)
 
 })
+
   # Define outputs here
   output$chart <- renderPlotly({
   # Set the color based on Olympics Rings
@@ -97,7 +100,7 @@ countryname <- reactive({
                          "South America" = "#EE0C0C",
                          "North America" = "#FF8181")
     if(input$linear_scale){
-      h <- highlight_key(countryname(), ~country)
+      h <- highlight_key(date_input(), ~country)
       p <- h %>%
         ggplot(aes(x = gdp_per_capita,
                    y = cooking)) +
@@ -114,15 +117,18 @@ countryname <- reactive({
         scale_x_continuous(labels = scales::dollar_format(prefix = "$",big.mark = ","))+
         labs(title = "Global access to clean fuel",
              x = "GDP per captia",
-             y = "Access to clean fuels and technologies for cooking",
+             y = "Proportion of access to clean fuels for cooking",
              color = "Continent")+
         scale_color_manual(values = continent.color)+
         theme_bw()
-      ggplotly(p, tooltip = "text")
+      ggplotly(p, tooltip = "text")%>%
+        config(displaylogo = FALSE,
+               modeBarButtonsToRemove = c("zoomIn2d", "zoomOut2d", "zoom2d", "pan2d")) %>%
+        highlight(on = "plotly_hover", off = "plotly_doubleclick")
       }
 
     else{
-      h <- highlight_key(countryname(), ~country)
+      h <- highlight_key(date_input(), ~country)
       p <- h %>%
         ggplot(aes(x = log(gdp_per_capita),
                    y = cooking
@@ -138,23 +144,26 @@ countryname <- reactive({
                                                        suffix = "million")) +
         scale_y_continuous(labels = scales::label_percent(scale = 1)) +
         scale_x_continuous(labels = scales::dollar_format(prefix = "$"))+
-        labs(title = "Global access to clean fuel in 2016",
+        labs(title = "Global access to clean fuels in 2016",
              x = "Logged GDP per captia",
-             y = "Access to clean fuels and technologies for cooking",
+             y = "Proportion of access to clean fuels for cooking",
              color = "")+
         scale_color_manual(values = continent.color)+
         theme_bw()
 
-      ggplotly(p, tooltip = "text")
+      ggplotly(p, tooltip = "text") %>%
+        config(displaylogo = FALSE,
+               modeBarButtonsToRemove = c("zoomIn2d", "zoomOut2d", "zoom2d", "pan2d")) %>%
+        highlight(on = "plotly_hover", off = "plotly_doubleclick")
     }
   })
 
   output$table <- renderDataTable({
     countryname() %>%
-      select(-year, -tooltip, -code) %>%
+      select(-tooltip, -code) %>%
       mutate(gdp_per_capita = scales::number(gdp_per_capita, accuracy = .01, big.mark = ","),
              total_population = scales::number(total_population, big.mark = ",")) %>%
-
+      arrange(country, desc(year)) %>%
     datatable(options = list(pageLength = 10,
                              scrollX = TRUE,
                              auto_browse(TRUE)
