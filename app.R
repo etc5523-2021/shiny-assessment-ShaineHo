@@ -3,6 +3,7 @@ library(DT)
 library(tidyverse)
 library(plotly)
 library(here)
+library(shinyWidgets)
 
 # once you've prepared the data uncomment this line
 tidy_fuels <- read_csv(here("data/cooking.csv"))
@@ -16,19 +17,16 @@ ui <- fluidPage(
       fluidRow(
         column(
           2,
-          checkboxInput("linear_scale",
-            "Linearize x-axis",
-            value = FALSE
-          )
+          radioGroupButtons("linear_scale",
+                            "Linear/Log Selector",
+                            choices = c("LINEAR", "LOG"),
+                            selected = "LINEAR",
+                            justified = TRUE)
         ),
         column(
           6,
           offset = 1,
           # also possible to use plotly here
-          selectizeInput("countries", "Select Countries",
-            choices = c(tidy_fuels$country),
-            multiple = TRUE
-          )
         ),
         column(
           2,
@@ -43,10 +41,11 @@ ui <- fluidPage(
       sliderInput("year", "Year",
         min = 2000,
         max = 2016,
-        value = 2016,
+        value = c(2000,2016),
         sep = "",
         width = "100%"
       )
+
     ),
     tabPanel("table", dataTableOutput("table"), icon = icon("table")),
     tabPanel("about", icon = icon("question"))
@@ -63,13 +62,22 @@ server <- function(input, output, session) {
 
 # Define reactive expressions here for filtering data
 
+  min <- reactive({input$year[1]})
+  max <- reactive({input$year[2]})
+
+  year_input <- reactive({
+    tidy_fuels %>%
+      filter(year >= min(), year <= max())
+
+  })
+
 countrysize <- reactive({
 if (input$small_countries) {
-  tidy_fuels %>%
+  year_input() %>%
    filter(total_population > 1000000)
 }
   else {
-  tidy_fuels
+  year_input()
 }
 
 })
@@ -84,24 +92,50 @@ countryname <- reactive({
 
 })
 
-date_input <- reactive({
-  countryname() %>%
-    filter(year %in% input$year)
-
-})
 
   # Define outputs here
   output$chart <- renderPlotly({
   # Set the color based on Olympics Rings
     continent.color <- c("Asia" = "#FCD200",
                          "Europe" = "#056FCD",
-                         "Africa" = "black",
+                         "Africa" = "#616060",
                          "Oceania" = "#069A21",
                          "South America" = "#EE0C0C",
                          "North America" = "#FF8181")
-    if(input$linear_scale){
-      h <- highlight_key(date_input(), ~country)
-      p <- h %>%
+    if(input$linear_scale == "LINEAR"){
+      p <- countryname() %>%
+        highlight_key(~country, "Select Countries") %>%
+         ggplot(aes(x = gdp_per_capita,
+                   y = cooking)) +
+        geom_point(aes(text = tooltip,
+                       label = country,
+                       size = total_population,
+                       color = continent))+
+        scale_size_continuous(labels = ~scales::number(.,
+                                                       scale = 1/1e6,
+                                                       accuracy = 1,
+                                                       big.mark = ",",
+                                                       suffix = "million")) +
+        scale_y_continuous(labels = scales::label_percent(scale = 1)) +
+        scale_x_continuous(labels = scales::dollar_format(prefix = "$",big.mark = ","))+
+        labs(title = "Global access to clean fuel from 2000-2016",
+             x = "GDP per captia",
+             y = "Access to clean fuels and technologies for cooking",
+             color = "Continent")+
+        scale_color_manual(values = continent.color)+
+        theme_minimal()
+
+      highlight(ggplotly(p, tooltip = "text"),
+                selectize = TRUE,
+                persistent = TRUE)%>%
+        config(displaylogo = FALSE,
+               modeBarButtonsToRemove = c("zoomIn2d", "zoomOut2d", "zoom2d", "pan2d"))
+
+      }
+
+    else{
+      p <- countryname() %>%
+        highlight_key(~country, "Select Countries") %>%
         ggplot(aes(x = gdp_per_capita,
                    y = cooking)) +
         geom_point(aes(text = tooltip,
@@ -114,60 +148,45 @@ date_input <- reactive({
                                                        big.mark = ",",
                                                        suffix = "million")) +
         scale_y_continuous(labels = scales::label_percent(scale = 1)) +
-        scale_x_continuous(labels = scales::dollar_format(prefix = "$",big.mark = ","))+
-        labs(title = "Global access to clean fuel",
-             x = "GDP per captia",
-             y = "Proportion of access to clean fuels for cooking",
-             color = "Continent")+
-        scale_color_manual(values = continent.color)+
-        theme_bw()
-      ggplotly(p, tooltip = "text")%>%
-        config(displaylogo = FALSE,
-               modeBarButtonsToRemove = c("zoomIn2d", "zoomOut2d", "zoom2d", "pan2d")) %>%
-        highlight(on = "plotly_hover", off = "plotly_doubleclick")
-      }
-
-    else{
-      h <- highlight_key(date_input(), ~country)
-      p <- h %>%
-        ggplot(aes(x = log(gdp_per_capita),
-                   y = cooking
-        )) +
-        geom_point(aes(text = tooltip,
-                       label = country,
-                       size = total_population,
-                       color = continent)) +
-        scale_size_continuous(labels = ~scales::number(.,
-                                                       scale = 1/1e6,
-                                                       accuracy = 1,
-                                                       big.mark = ",",
-                                                       suffix = "million")) +
-        scale_y_continuous(labels = scales::label_percent(scale = 1)) +
-        scale_x_continuous(labels = scales::dollar_format(prefix = "$"))+
-        labs(title = "Global access to clean fuels in 2016",
+        scale_x_log10(labels = ~scales::dollar(., accuracy = 1),
+                      breaks = c(1000, 2000, 5000, 10000, 20000, 100000))+
+        labs(title = "Global access to clean fuels from 2000-2016",
              x = "Logged GDP per captia",
              y = "Proportion of access to clean fuels for cooking",
              color = "")+
         scale_color_manual(values = continent.color)+
-        theme_bw()
+        theme_minimal()
 
-      ggplotly(p, tooltip = "text") %>%
+      highlight(ggplotly(p, tooltip = "text"),
+                selectize = TRUE,
+                persistent = TRUE)%>%
         config(displaylogo = FALSE,
-               modeBarButtonsToRemove = c("zoomIn2d", "zoomOut2d", "zoom2d", "pan2d")) %>%
-        highlight(on = "plotly_hover", off = "plotly_doubleclick")
+               modeBarButtonsToRemove = c("zoomIn2d", "zoomOut2d", "zoom2d", "pan2d"))
     }
   })
 
   output$table <- renderDataTable({
     countryname() %>%
       select(-tooltip, -code) %>%
-      mutate(gdp_per_capita = scales::number(gdp_per_capita, accuracy = .01, big.mark = ","),
-             total_population = scales::number(total_population, big.mark = ",")) %>%
-      arrange(country, desc(year)) %>%
-    datatable(options = list(pageLength = 10,
-                             scrollX = TRUE,
-                             auto_browse(TRUE)
-                             ))
+      mutate(gdp_per_capita = scales::dollar(gdp_per_capita,
+                                             aclassccuracy = .01,
+                                             big.mark = ","),
+             total_population = scales::number(total_population,
+                                               scale = 1e-6,
+                                               accuracy = 0.01,
+                                               suffix = " Million"),
+             cooking = scales::percent(cooking,
+                                       scale = 1,
+                                       accuracy = 0.01)) %>%
+
+      arrange(desc(year)) %>%
+    datatable(colnames = c("Country" = "country",
+                           `Access to clean fuels and technologies for cooking` = "cooking",
+                           `GDP per capita (int.-$)` = "gdp_per_capita",
+                           "Population" = "total_population"),
+              options = list(pageLength = 10,
+                             scrollX = TRUE
+              ))
   })
 }
 
