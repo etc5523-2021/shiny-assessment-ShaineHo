@@ -11,7 +11,7 @@ tidy_fuels <- read_csv(here("data/cooking.csv"))
 ui <- fluidPage(
   title = "Indoor Air Pollution",
   tabsetPanel(
-    tabPanel("chart",
+    tabPanel("Chart",
       icon = icon("line-chart"),
       fluidRow(
         column(
@@ -43,10 +43,9 @@ ui <- fluidPage(
         value = c(2000,2016),
         sep = "",
         width = "100%"
-      )
-
+      ),
     ),
-    tabPanel("table",
+    tabPanel("Table",
              column(
                3,
       offset = 1,
@@ -57,7 +56,7 @@ ui <- fluidPage(
       )
     ),
  dataTableOutput("table"), icon = icon("table")),
-    tabPanel("about", icon = icon("question"),
+    tabPanel("About", icon = icon("question"),
              includeMarkdown("README.md"))
   )
 )

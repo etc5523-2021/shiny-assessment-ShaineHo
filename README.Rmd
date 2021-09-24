@@ -11,10 +11,10 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Shinyapp of Clean Fuels Access to GDP
+# Shinyapp of Access to Clean Fuels based on Population
 
 
-## Yin Shan Ho 31201474
+## The shinyapp is created by Yin Shan Ho 31201474
 
 This is a template that contains materials to create a shiny gadget application
 for assessment 2. You will need the following packages installed to 
@@ -26,8 +26,29 @@ install.packages(c("shiny", "crosstalk", "plotly", "DT", "tidyverse", "here", "s
 
 ## How to run the app
 
-Describe how to run the gadget and use it here. Include any additional comments
-and list any additional packages required to run the gadget. 
+This app is the proportion access to clean fuels and technologies for cooking based on population to GDP. The **color of the chart was chosen based on the Olympics Rings** which colors represent the five continents.  
+The function of the chart are as follow:
+
+ > Chart Tab
+ 
+- **The chart can be shown in logged or linearized** form by switching the button titled'"Linear/Log Selector" at the top left-hand corner. 
+
+- **Small countries which population below 1 million can be filtered** by the checkbox titled "Hide countries < 1 million population" at top right-hand corner.
+
+- **The countries in the plot can be selected** by directly clicking the the points in the chart or inputting the country in the box titled "Select Countries to show in the Plot".  
+**NOTE**: The selected data can be reset by double clicking the plot.
+
+- **The time of the Data can be shown accordingly** to the setting of the sliderbar titled "Year" at the bottom.   
+**NOTE**: The data can be shown by individual year or the range of the year by moving the slider bar.
+
+> Table Tab
+
+- **The countries in the table can be selected** by inputting the country in the box titled "Select Countries to show in the Table".
+
+- **The time of the Data can be shown accordingly** to the setting of the sliderbar titled "Year" in the chart tab.  
+**NOTE**: The data of the table can be shown by the selected beginning and the ending year or individual year specified.
+
+The data of the app is downloaded from the [World Bank]( https://databank.worldbank.org/reports.aspx?dsid=2&series=EG.CFT.ACCS.ZS). Whereas the shinyapp was made based on the chart from [Our World in Data](https://ourworldindata.org/grapher/access-to-clean-fuels-for-cooking-vs-gdp-per-capita?time=earliest..2016). 
 
 ## Session Info
 
