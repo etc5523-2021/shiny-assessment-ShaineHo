@@ -57,7 +57,8 @@ ui <- fluidPage(
       )
     ),
  dataTableOutput("table"), icon = icon("table")),
-    tabPanel("about", icon = icon("question"))
+    tabPanel("about", icon = icon("question"),
+             includeMarkdown("README.md"))
   )
 )
 
