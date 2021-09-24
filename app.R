@@ -8,7 +8,6 @@ library(shinyWidgets)
 # once you've prepared the data uncomment this line
 tidy_fuels <- read_csv(here("data/cooking.csv"))
 # you might want to use highlight_key here
-
 ui <- fluidPage(
   title = "Indoor Air Pollution",
   tabsetPanel(
@@ -47,7 +46,17 @@ ui <- fluidPage(
       )
 
     ),
-    tabPanel("table", dataTableOutput("table"), icon = icon("table")),
+    tabPanel("table",
+             column(
+               3,
+      offset = 1,
+      # also possible to use plotly here
+      selectizeInput("countries", "Select Countries to show the Table",
+                     choices = c(tidy_fuels$country),
+                     multiple = TRUE
+      )
+    ),
+ dataTableOutput("table"), icon = icon("table")),
     tabPanel("about", icon = icon("question"))
   )
 )
@@ -104,7 +113,7 @@ countryname <- reactive({
                          "North America" = "#FF8181")
     if(input$linear_scale == "LINEAR"){
       p <- countryname() %>%
-        highlight_key(~country, "Select Countries") %>%
+        highlight_key(~country, "Select Countries to show in the Plot") %>%
          ggplot(aes(x = gdp_per_capita,
                    y = cooking)) +
         geom_point(aes(text = tooltip,
@@ -126,6 +135,7 @@ countryname <- reactive({
         theme_minimal()
 
       highlight(ggplotly(p, tooltip = "text"),
+                on = "plotly_click",
                 selectize = TRUE,
                 persistent = TRUE)%>%
         config(displaylogo = FALSE,
@@ -166,10 +176,11 @@ countryname <- reactive({
   })
 
   output$table <- renderDataTable({
+    if(max()- min() == 0){
     countryname() %>%
       select(-tooltip, -code) %>%
       mutate(gdp_per_capita = scales::dollar(gdp_per_capita,
-                                             aclassccuracy = .01,
+                                             accuracy = .01,
                                              big.mark = ","),
              total_population = scales::number(total_population,
                                                scale = 1e-6,
@@ -185,9 +196,56 @@ countryname <- reactive({
                            `GDP per capita (int.-$)` = "gdp_per_capita",
                            "Population" = "total_population"),
               options = list(pageLength = 10,
-                             scrollX = TRUE
-              ))
+                             scrollX = TRUE,
+                             columnDefs = list(list(className = 'dt-right',
+                                               targets = c(3:6)))
+              ))}
+    else{
+  table <-  countryname() %>%
+        select(-tooltip, -code) %>%
+        filter(year %in%c(max(), min())) %>%
+        mutate(gdp_per_capita = scales::dollar(gdp_per_capita,
+                                               accuracy = .01,
+                                               big.mark = ","),
+               total_population = scales::number(total_population,
+                                                 scale = 1e-6,
+                                                 accuracy = 0.01,
+                                                 suffix = " Million"),
+               cooking = scales::percent(cooking,
+                                         scale = 1,
+                                         accuracy = 0.01)) %>%
+        pivot_wider(names_from = year,
+                    values_from = c(cooking,
+                                    gdp_per_capita,
+                                    total_population))
+
+        sketch <- htmltools::withTags(table(
+          class = 'display',
+          thead(
+            tr(
+              th(rowspan = 2, 'Continent'),
+              th(rowspan = 2, 'Country'),
+              th(colspan = 2, class = 'dt-center','Access to clean fuels and technologies for cooking'),
+              th(colspan = 2, class = 'dt-center','GDP per capita (int.-$)'),
+              th(colspan = 2, class = 'dt-center','Population'),
+            ),
+            tr(
+              lapply(rep(c(min(), max()), 3), th)
+            )
+          )
+        ))
+
+        datatable(table,
+                  container = sketch,
+                  rownames = FALSE,
+                    options = list(pageLength = 10,
+                                   scrollX = TRUE,
+                                   columnDefs = list(list(className = 'dt-right',
+                                                        targets = c(2:7)))
+                  ))
+    }
   })
+
 }
 
 runApp(shinyApp(ui, server))
